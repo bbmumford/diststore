@@ -36,7 +36,7 @@ func TestRecipientWrapRoundtrip(t *testing.T) {
 	if w.Alg != WrapAlgNaClBox {
 		t.Fatalf("alg = %q, want %q", w.Alg, WrapAlgNaClBox)
 	}
-	got, err := UnwrapToRecipient(w, pub, priv, nil)
+	got, err := UnwrapToRecipient(w, pub, priv, EntitledAllowAll)
 	if err != nil {
 		t.Fatalf("unwrap: %v", err)
 	}
@@ -53,7 +53,7 @@ func TestRecipientWrapWrongKeyFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	// A different recipient keypair must not open a box sealed to pub1.
-	if _, err := UnwrapToRecipient(w, pub2, priv2, nil); !errors.Is(err, ErrRecipientUnwrap) {
+	if _, err := UnwrapToRecipient(w, pub2, priv2, EntitledAllowAll); !errors.Is(err, ErrRecipientUnwrap) {
 		t.Fatalf("wrong-key unwrap err = %v, want ErrRecipientUnwrap", err)
 	}
 }
@@ -88,7 +88,7 @@ func TestRecipientWrapP256Roundtrip(t *testing.T) {
 	if w.Alg != WrapAlgP256AESKW {
 		t.Fatalf("alg = %q, want %q", w.Alg, WrapAlgP256AESKW)
 	}
-	got, err := UnwrapToRecipientP256(w, priv, nil)
+	got, err := UnwrapToRecipientP256(w, priv, EntitledAllowAll)
 	if err != nil {
 		t.Fatalf("p256 unwrap: %v", err)
 	}
@@ -104,8 +104,24 @@ func TestP256WrongKeyFails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := UnwrapToRecipientP256(w, priv2, nil); !errors.Is(err, ErrRecipientUnwrap) {
+	if _, err := UnwrapToRecipientP256(w, priv2, EntitledAllowAll); !errors.Is(err, ErrRecipientUnwrap) {
 		t.Fatalf("p256 wrong-key err = %v, want ErrRecipientUnwrap", err)
+	}
+}
+
+// A nil entitlement gate must be rejected fail-closed (never an implicit allow)
+// on both unwrap paths, before any key material is touched.
+func TestUnwrapNilGateRejected(t *testing.T) {
+	pub, priv, _ := ed25519.GenerateKey(rand.Reader)
+	w, _ := WrapDataKeyForRecipient(mustDEK(t), pub)
+	if _, err := UnwrapToRecipient(w, pub, priv, nil); !errors.Is(err, ErrNoEntitlementGate) {
+		t.Fatalf("nil gate (nacl) err = %v, want ErrNoEntitlementGate", err)
+	}
+
+	p256, _ := ecdh.P256().GenerateKey(rand.Reader)
+	wp, _ := WrapDataKeyForRecipientP256(mustDEK(t), p256.PublicKey())
+	if _, err := UnwrapToRecipientP256(wp, p256, nil); !errors.Is(err, ErrNoEntitlementGate) {
+		t.Fatalf("nil gate (p256) err = %v, want ErrNoEntitlementGate", err)
 	}
 }
 

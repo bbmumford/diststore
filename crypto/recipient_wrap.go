@@ -49,6 +49,19 @@ const recipientKEKContext = "diststore-recip-kek-v1"
 // — wrong recipient key, tampered ciphertext, or an integrity-check failure.
 var ErrRecipientUnwrap = errors.New("crypto: recipient unwrap failed")
 
+// ErrNoEntitlementGate is returned by the Unwrap* functions when the entitled
+// gate is nil. A missing gate is fail-closed (never an implicit allow): a caller
+// that genuinely needs no policy check must pass EntitledAllowAll explicitly, so
+// every authorization bypass is greppable and intentional rather than the
+// accidental default.
+var ErrNoEntitlementGate = errors.New("crypto: nil entitlement gate (pass a real check or EntitledAllowAll)")
+
+// EntitledAllowAll is the explicit, auditable "no entitlement gate" sentinel for
+// self-wrap and test fixtures. Production callers pass a real policy check; a
+// caller that legitimately needs no gate passes EntitledAllowAll so the bypass
+// is visible to code search and review. Never pass nil — it is rejected.
+func EntitledAllowAll() error { return nil }
+
 // RecipientWrappedDataKey is a per-blob data key sealed to ONE recipient's
 // public key. Unlike WrappedDataKey (tenant-symmetric, tenant_kek.go), no
 // shared KEK is needed: only the holder of the recipient private key can
@@ -115,15 +128,17 @@ func WrapDataKeyForRecipient(dek []byte, recipientEdPub ed25519.PublicKey) (Reci
 }
 
 // UnwrapToRecipient opens w using the recipient's Ed25519 keypair, AFTER the
-// entitled gate passes. entitled==nil means the caller already authorised
-// (test fixtures / self-wrap); otherwise its error is returned verbatim and NO
-// crypto is attempted — fail-closed before key material is touched.
+// entitled gate passes. entitled must be non-nil — pass a real policy check, or
+// EntitledAllowAll for self-wrap/test fixtures; a nil gate is rejected with
+// ErrNoEntitlementGate (fail-closed, no implicit allow). The gate runs and any
+// error is returned verbatim BEFORE key material is touched.
 func UnwrapToRecipient(w RecipientWrappedDataKey, recipientEdPub ed25519.PublicKey,
 	recipientEdPriv ed25519.PrivateKey, entitled func() error) ([]byte, error) {
-	if entitled != nil {
-		if err := entitled(); err != nil {
-			return nil, err
-		}
+	if entitled == nil {
+		return nil, ErrNoEntitlementGate
+	}
+	if err := entitled(); err != nil {
+		return nil, err
 	}
 	if w.Alg != WrapAlgNaClBox {
 		return nil, fmt.Errorf("crypto: UnwrapToRecipient: alg %q is not %q", w.Alg, WrapAlgNaClBox)
@@ -176,12 +191,14 @@ func WrapDataKeyForRecipientP256(dek []byte, recipientP256Pub *ecdh.PublicKey) (
 }
 
 // UnwrapToRecipientP256 reverses WrapDataKeyForRecipientP256 after the entitled
-// gate passes (fail-closed, same as UnwrapToRecipient).
+// gate passes. Same gate contract as UnwrapToRecipient: entitled must be non-nil
+// (pass EntitledAllowAll for no gate); nil is rejected with ErrNoEntitlementGate.
 func UnwrapToRecipientP256(w RecipientWrappedDataKey, recipientP256Priv *ecdh.PrivateKey, entitled func() error) ([]byte, error) {
-	if entitled != nil {
-		if err := entitled(); err != nil {
-			return nil, err
-		}
+	if entitled == nil {
+		return nil, ErrNoEntitlementGate
+	}
+	if err := entitled(); err != nil {
+		return nil, err
 	}
 	if w.Alg != WrapAlgP256AESKW {
 		return nil, fmt.Errorf("crypto: UnwrapToRecipientP256: alg %q is not %q", w.Alg, WrapAlgP256AESKW)
