@@ -1,9 +1,9 @@
+//go:build js && wasm
+
 /*
  * Copyright (c) 2026 HSTLES / ORBTR Pty Ltd. All Rights Reserved.
  * Queries: licensing@hstles.com
  */
-
-//go:build js && wasm
 
 package quota
 

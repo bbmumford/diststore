@@ -1,9 +1,9 @@
+//go:build (linux || darwin || freebsd || netbsd || openbsd || dragonfly) && !js
+
 /*
  * Copyright (c) 2026 HSTLES / ORBTR Pty Ltd. All Rights Reserved.
  * Queries: licensing@hstles.com
  */
-
-//go:build (linux || darwin || freebsd || netbsd || openbsd || dragonfly) && !js
 
 package quota
 

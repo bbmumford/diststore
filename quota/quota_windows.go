@@ -1,9 +1,9 @@
+//go:build windows
+
 /*
  * Copyright (c) 2026 HSTLES / ORBTR Pty Ltd. All Rights Reserved.
  * Queries: licensing@hstles.com
  */
-
-//go:build windows
 
 package quota
 

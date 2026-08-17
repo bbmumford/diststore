@@ -39,9 +39,13 @@ func newMapTransport() *mapTransport {
 	}
 }
 
-func (m *mapTransport) setPayload(p string, d []byte)        { m.mu.Lock(); m.payloads[p] = d; m.mu.Unlock() }
-func (m *mapTransport) setErr(p string, e error)             { m.mu.Lock(); m.errs[p] = e; m.mu.Unlock() }
-func (m *mapTransport) setDelay(p string, d time.Duration)   { m.mu.Lock(); m.delays[p] = d; m.mu.Unlock() }
+func (m *mapTransport) setPayload(p string, d []byte) { m.mu.Lock(); m.payloads[p] = d; m.mu.Unlock() }
+func (m *mapTransport) setErr(p string, e error)      { m.mu.Lock(); m.errs[p] = e; m.mu.Unlock() }
+func (m *mapTransport) setDelay(p string, d time.Duration) {
+	m.mu.Lock()
+	m.delays[p] = d
+	m.mu.Unlock()
+}
 
 func (m *mapTransport) FetchPiece(ctx context.Context, p string, req FetchRequest) (FetchResponse, error) {
 	m.mu.Lock()
