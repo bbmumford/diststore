@@ -33,6 +33,6 @@ func (nopTracer) Start(ctx context.Context, _ string) (context.Context, Span) {
 
 type nopSpan struct{}
 
-func (nopSpan) End()                        {}
-func (nopSpan) SetAttr(_ string, _ any)     {}
-func (nopSpan) RecordError(_ error)         {}
+func (nopSpan) End()                    {}
+func (nopSpan) SetAttr(_ string, _ any) {}
+func (nopSpan) RecordError(_ error)     {}

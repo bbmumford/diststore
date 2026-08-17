@@ -324,10 +324,10 @@ func xorRoundCount(a []byte, t uint64) {
 // EncryptForStorage binds CID as AAD — a verifier rejects a wrap whose BlobCID
 // does not match the blob it was requested for.
 type WrappingRecord struct {
-	BlobCID   string                  `json:"blobCid"`    // content-address of the blob (anchor)
-	Recipient RecipientWrappedDataKey `json:"recipient"`  // sealed DEK + alg + recipient pub
-	WrapperPub []byte                 `json:"wrapperPub"` // ed25519 pub of the issuing node (embedded)
-	Signature []byte                  `json:"signature"`  // ed25519 over canonical(record, WrapperPub+Signature cleared)
+	BlobCID    string                  `json:"blobCid"`    // content-address of the blob (anchor)
+	Recipient  RecipientWrappedDataKey `json:"recipient"`  // sealed DEK + alg + recipient pub
+	WrapperPub []byte                  `json:"wrapperPub"` // ed25519 pub of the issuing node (embedded)
+	Signature  []byte                  `json:"signature"`  // ed25519 over canonical(record, WrapperPub+Signature cleared)
 }
 
 // canonicalWrapping marshals r with WrapperPub + Signature cleared, producing

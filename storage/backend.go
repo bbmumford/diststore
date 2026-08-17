@@ -17,7 +17,8 @@ import (
 	"errors"
 )
 
-// ErrNotFound is returned by Get and Delete when the cid is absent.
+// ErrNotFound is returned by Get when the cid is absent. Delete treats an absent cid as a no-op and
+// does not return it.
 var ErrNotFound = errors.New("storage: not found")
 
 // Entry is a single (cid, size) record returned by Iter.
