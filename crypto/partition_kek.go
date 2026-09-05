@@ -15,21 +15,21 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
-// TenantKEKContext is the HKDF context string for deriving a per-tenant
+// PartitionKEKContext is the HKDF context string for deriving a per-partition
 // Key-Encryption-Key (KEK) from the node's identity material.
-const TenantKEKContext = "diststore-tenant-kek-v1"
+const PartitionKEKContext = "diststore-tenant-kek-v1"
 
 // DeriveTenantKEK produces a 32-byte KEK scoped to a tenant ID. Cross-
 // tenant chunk reads are structurally impossible because every tenant's
 // per-blob data keys are wrapped under a distinct KEK.
-func DeriveTenantKEK(identityPriv []byte, tenantID string) ([]byte, error) {
+func DerivePartitionKEK(identityPriv []byte, partitionID string) ([]byte, error) {
 	if len(identityPriv) == 0 {
 		return nil, errors.New("crypto: empty identity key")
 	}
-	if tenantID == "" {
+	if partitionID == "" {
 		return nil, errors.New("crypto: empty tenant id")
 	}
-	info := []byte(TenantKEKContext + "|" + tenantID)
+	info := []byte(PartitionKEKContext + "|" + partitionID)
 	h := hkdf.New(sha256.New, identityPriv, nil, info)
 	kek := make([]byte, chacha20poly1305.KeySize)
 	if _, err := h.Read(kek); err != nil {
@@ -38,7 +38,7 @@ func DeriveTenantKEK(identityPriv []byte, tenantID string) ([]byte, error) {
 	return kek, nil
 }
 
-// WrappedDataKey is the per-blob data key wrapped under a tenant KEK.
+// WrappedDataKey is the per-blob data key wrapped under a partition KEK.
 // The wrap is an XChaCha20-Poly1305 seal so a leaked wrap on its own
 // is useless without the KEK.
 type WrappedDataKey struct {
@@ -49,17 +49,17 @@ type WrappedDataKey struct {
 }
 
 // NewWrappedDataKey generates a fresh random 32-byte data key, wraps it
-// under the tenant KEK, and returns both the wrapped form (for storage
+// under the partition KEK, and returns both the wrapped form (for storage
 // alongside the manifest) and the unwrapped key (for immediate use).
-func NewWrappedDataKey(tenantKEK []byte) (key []byte, wrapped WrappedDataKey, err error) {
-	if len(tenantKEK) != chacha20poly1305.KeySize {
-		return nil, WrappedDataKey{}, fmt.Errorf("crypto: tenant KEK size %d", len(tenantKEK))
+func NewWrappedDataKey(partitionKEK []byte) (key []byte, wrapped WrappedDataKey, err error) {
+	if len(partitionKEK) != chacha20poly1305.KeySize {
+		return nil, WrappedDataKey{}, fmt.Errorf("crypto: tenant KEK size %d", len(partitionKEK))
 	}
 	key = make([]byte, chacha20poly1305.KeySize)
 	if _, err := rand.Read(key); err != nil {
 		return nil, WrappedDataKey{}, fmt.Errorf("crypto: rand: %w", err)
 	}
-	aead, err := chacha20poly1305.NewX(tenantKEK)
+	aead, err := chacha20poly1305.NewX(partitionKEK)
 	if err != nil {
 		return nil, WrappedDataKey{}, fmt.Errorf("crypto: aead: %w", err)
 	}
@@ -75,14 +75,14 @@ func NewWrappedDataKey(tenantKEK []byte) (key []byte, wrapped WrappedDataKey, er
 }
 
 // UnwrapDataKey unwraps a previously-wrapped data key.
-func UnwrapDataKey(tenantKEK []byte, w WrappedDataKey) ([]byte, error) {
-	if len(tenantKEK) != chacha20poly1305.KeySize {
-		return nil, fmt.Errorf("crypto: tenant KEK size %d", len(tenantKEK))
+func UnwrapDataKey(partitionKEK []byte, w WrappedDataKey) ([]byte, error) {
+	if len(partitionKEK) != chacha20poly1305.KeySize {
+		return nil, fmt.Errorf("crypto: tenant KEK size %d", len(partitionKEK))
 	}
 	if len(w.Nonce) != chacha20poly1305.NonceSizeX {
 		return nil, fmt.Errorf("crypto: wrapped-key nonce size %d", len(w.Nonce))
 	}
-	aead, err := chacha20poly1305.NewX(tenantKEK)
+	aead, err := chacha20poly1305.NewX(partitionKEK)
 	if err != nil {
 		return nil, fmt.Errorf("crypto: aead: %w", err)
 	}

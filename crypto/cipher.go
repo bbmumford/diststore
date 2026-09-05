@@ -9,9 +9,9 @@
 // The Cipher interface is small and pluggable so callers can swap the
 // default XChaCha20-Poly1305 impl for AES-256-GCM (or any other AEAD).
 //
-// Per-tenant KEK isolation (tenant_kek.go) lets a single node host
-// multiple tenant caches whose chunks are structurally inaccessible
-// across tenant boundaries.
+// Per-partition KEK isolation (tenant_kek.go) lets a single node host
+// multiple partition caches whose chunks are structurally inaccessible
+// across partition boundaries.
 //
 // Per-recipient asymmetric wrap (recipient_wrap.go) is the complementary
 // model: a blob's data key is sealed to a single peer's public key with no

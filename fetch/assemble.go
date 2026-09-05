@@ -47,7 +47,7 @@ type ManifestGetter interface {
 // Any failure is a hard error and yields no bytes. The whole blob is held in memory during assembly
 // (bounded by the chunker's file-size cap); streaming piece-by-piece with offset reads is a later
 // optimization the get-side serve path leaves gated.
-func AssembleBlob(ctx context.Context, tenant, blobID string, m *chunker.Manifest, g PieceGetter) ([]byte, error) {
+func AssembleBlob(ctx context.Context, partition, blobID string, m *chunker.Manifest, g PieceGetter) ([]byte, error) {
 	if m == nil {
 		return nil, errors.New("fetch: nil manifest")
 	}
@@ -66,7 +66,7 @@ func AssembleBlob(ctx context.Context, tenant, blobID string, m *chunker.Manifes
 	}
 	pieces := make([][]byte, len(m.Pieces))
 	for i, ref := range m.Pieces {
-		b, err := g.GetPiece(ctx, tenant, ref.CID)
+		b, err := g.GetPiece(ctx, partition, ref.CID)
 		if err != nil {
 			return nil, fmt.Errorf("fetch: piece %d (%s): %w", i, ref.CID, err)
 		}
@@ -87,7 +87,7 @@ type SignedManifestGetter interface {
 }
 
 // AssembleSignedBlob is AssembleBlob with the strongest manifest check first: the manifest's Ed25519
-// signature is verified against the tenant's storage key via index.ValidateManifest (which also
+// signature is verified against the partition's storage key via index.ValidateManifest (which also
 // recomputes the Merkle root and sanity-checks the piece shape). Only then is the root bound to the
 // requested blobID and the pieces fetched + CID-verified. A forged or tampered manifest is rejected
 // on the signature, so a substituted piece list cannot even be considered — this is the validation a
@@ -119,7 +119,7 @@ func AssembleSignedBlob(ctx context.Context, tenant, blobID string, m *chunker.M
 // SignedVerifyingSource assembles blobs with full validation — the manifest's Ed25519 signature
 // (against PubKey), its Merkle root, the requested-address binding, and every piece CID — and exposes
 // them as an (io.ReadCloser, size) pair. It is the byte-source seam the get-side serve path injects
-// once the tenant's storage signing key is available; it is strictly stronger than VerifyingSource.
+// once the partition's storage signing key is available; it is strictly stronger than VerifyingSource.
 type SignedVerifyingSource struct {
 	Manifests SignedManifestGetter
 	Pieces    PieceGetter
@@ -127,16 +127,16 @@ type SignedVerifyingSource struct {
 }
 
 // Open resolves the signed manifest, validates + assembles the blob, and returns a reader over the
-// bytes plus their length. The tenant is the caller's chain-authoritative tenant, never a token claim.
-func (s SignedVerifyingSource) Open(ctx context.Context, tenant, blobID string) (io.ReadCloser, int64, error) {
+// bytes plus their length. The tenant is the caller's chain-authoritative partition, never a token claim.
+func (s SignedVerifyingSource) Open(ctx context.Context, partition, blobID string) (io.ReadCloser, int64, error) {
 	if s.Manifests == nil {
 		return nil, 0, errors.New("fetch: nil signed manifest getter")
 	}
-	m, sig, err := s.Manifests.GetSignedManifest(ctx, tenant, blobID)
+	m, sig, err := s.Manifests.GetSignedManifest(ctx, partition, blobID)
 	if err != nil {
 		return nil, 0, fmt.Errorf("fetch: signed manifest for %s: %w", blobID, err)
 	}
-	data, err := AssembleSignedBlob(ctx, tenant, blobID, m, sig, s.PubKey, s.Pieces)
+	data, err := AssembleSignedBlob(ctx, partition, blobID, m, sig, s.PubKey, s.Pieces)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -154,7 +154,7 @@ type VerifyingSource struct {
 }
 
 // Open resolves the manifest, assembles + verifies the blob, and returns a reader over the bytes plus
-// their length. The tenant is the caller's chain-authoritative tenant, never a token claim.
+// their length. The partition is the caller's chain-authoritative tenant, never a token claim.
 func (s VerifyingSource) Open(ctx context.Context, tenant, blobID string) (io.ReadCloser, int64, error) {
 	if s.Manifests == nil {
 		return nil, 0, errors.New("fetch: nil manifest getter")
