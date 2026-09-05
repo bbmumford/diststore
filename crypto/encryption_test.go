@@ -99,11 +99,11 @@ func TestAESGCMRoundtrip(t *testing.T) {
 func TestTenantKEKIsolation(t *testing.T) {
 	seed := make([]byte, 32)
 	rand.Read(seed)
-	kekA, err := DeriveTenantKEK(seed, "tenant-A")
+	kekA, err := DerivePartitionKEK(seed, "tenant-A")
 	if err != nil {
 		t.Fatalf("DeriveTenantKEK A: %v", err)
 	}
-	kekB, err := DeriveTenantKEK(seed, "tenant-B")
+	kekB, err := DerivePartitionKEK(seed, "tenant-B")
 	if err != nil {
 		t.Fatalf("DeriveTenantKEK B: %v", err)
 	}
