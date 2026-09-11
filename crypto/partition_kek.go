@@ -17,7 +17,7 @@ import (
 
 // PartitionKEKContext is the HKDF context string for deriving a per-partition
 // Key-Encryption-Key (KEK) from the node's identity material.
-const PartitionKEKContext = "diststore-tenant-kek-v1"
+const PartitionKEKContext = "diststore-partition-kek-v1"
 
 // DerivePartitionKEK produces a 32-byte KEK scoped to a partition. Cross-
 // partition chunk reads are structurally impossible because every partition's
