@@ -19,21 +19,21 @@ import (
 // Key-Encryption-Key (KEK) from the node's identity material.
 const PartitionKEKContext = "diststore-tenant-kek-v1"
 
-// DeriveTenantKEK produces a 32-byte KEK scoped to a tenant ID. Cross-
-// tenant chunk reads are structurally impossible because every tenant's
+// DerivePartitionKEK produces a 32-byte KEK scoped to a partition. Cross-
+// partition chunk reads are structurally impossible because every partition's
 // per-blob data keys are wrapped under a distinct KEK.
 func DerivePartitionKEK(identityPriv []byte, partitionID string) ([]byte, error) {
 	if len(identityPriv) == 0 {
 		return nil, errors.New("crypto: empty identity key")
 	}
 	if partitionID == "" {
-		return nil, errors.New("crypto: empty tenant id")
+		return nil, errors.New("crypto: empty partition id")
 	}
 	info := []byte(PartitionKEKContext + "|" + partitionID)
 	h := hkdf.New(sha256.New, identityPriv, nil, info)
 	kek := make([]byte, chacha20poly1305.KeySize)
 	if _, err := h.Read(kek); err != nil {
-		return nil, fmt.Errorf("crypto: tenant hkdf: %w", err)
+		return nil, fmt.Errorf("crypto: partition hkdf: %w", err)
 	}
 	return kek, nil
 }
@@ -53,7 +53,7 @@ type WrappedDataKey struct {
 // alongside the manifest) and the unwrapped key (for immediate use).
 func NewWrappedDataKey(partitionKEK []byte) (key []byte, wrapped WrappedDataKey, err error) {
 	if len(partitionKEK) != chacha20poly1305.KeySize {
-		return nil, WrappedDataKey{}, fmt.Errorf("crypto: tenant KEK size %d", len(partitionKEK))
+		return nil, WrappedDataKey{}, fmt.Errorf("crypto: partition KEK size %d", len(partitionKEK))
 	}
 	key = make([]byte, chacha20poly1305.KeySize)
 	if _, err := rand.Read(key); err != nil {
@@ -77,7 +77,7 @@ func NewWrappedDataKey(partitionKEK []byte) (key []byte, wrapped WrappedDataKey,
 // UnwrapDataKey unwraps a previously-wrapped data key.
 func UnwrapDataKey(partitionKEK []byte, w WrappedDataKey) ([]byte, error) {
 	if len(partitionKEK) != chacha20poly1305.KeySize {
-		return nil, fmt.Errorf("crypto: tenant KEK size %d", len(partitionKEK))
+		return nil, fmt.Errorf("crypto: partition KEK size %d", len(partitionKEK))
 	}
 	if len(w.Nonce) != chacha20poly1305.NonceSizeX {
 		return nil, fmt.Errorf("crypto: wrapped-key nonce size %d", len(w.Nonce))
