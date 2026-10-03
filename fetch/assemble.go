@@ -17,18 +17,18 @@ import (
 	"github.com/bbmumford/diststore/index"
 )
 
-// PieceGetter fetches one piece's ciphertext-or-plaintext bytes by its CID for a tenant. It is the
+// PieceGetter fetches one piece's ciphertext-or-plaintext bytes by its CID for a partition. It is the
 // transport seam — a mesh Fetcher in production, a fake in tests — and is NOT trusted: AssembleBlob
 // re-hashes every piece it returns.
 type PieceGetter interface {
-	GetPiece(ctx context.Context, tenant, pieceCID string) ([]byte, error)
+	GetPiece(ctx context.Context, partition, pieceCID string) ([]byte, error)
 }
 
 // ManifestGetter resolves a blob's manifest (its ordered piece list + root) by the blob's content
-// address for a tenant. Like PieceGetter it is untrusted; AssembleBlob re-derives the root from the
+// address for a partition. Like PieceGetter it is untrusted; AssembleBlob re-derives the root from the
 // pieces it lists.
 type ManifestGetter interface {
-	GetManifest(ctx context.Context, tenant, blobID string) (*chunker.Manifest, error)
+	GetManifest(ctx context.Context, partition, blobID string) (*chunker.Manifest, error)
 }
 
 // AssembleBlob fetches and CID-verifies a whole blob from its manifest and returns the ordered
@@ -83,7 +83,7 @@ func AssembleBlob(ctx context.Context, partition, blobID string, m *chunker.Mani
 // unsigned getter it is untrusted: AssembleSignedBlob verifies the signature before the manifest is
 // used at all.
 type SignedManifestGetter interface {
-	GetSignedManifest(ctx context.Context, tenant, blobID string) (*chunker.Manifest, []byte, error)
+	GetSignedManifest(ctx context.Context, partition, blobID string) (*chunker.Manifest, []byte, error)
 }
 
 // AssembleSignedBlob is AssembleBlob with the strongest manifest check first: the manifest's Ed25519
@@ -92,7 +92,7 @@ type SignedManifestGetter interface {
 // requested blobID and the pieces fetched + CID-verified. A forged or tampered manifest is rejected
 // on the signature, so a substituted piece list cannot even be considered — this is the validation a
 // content-served blob must pass, stronger than the structural-only AssembleBlob.
-func AssembleSignedBlob(ctx context.Context, tenant, blobID string, m *chunker.Manifest, signature []byte, pubkey ed25519.PublicKey, g PieceGetter) ([]byte, error) {
+func AssembleSignedBlob(ctx context.Context, partition, blobID string, m *chunker.Manifest, signature []byte, pubkey ed25519.PublicKey, g PieceGetter) ([]byte, error) {
 	if g == nil {
 		return nil, errors.New("fetch: nil piece getter")
 	}
@@ -104,7 +104,7 @@ func AssembleSignedBlob(ctx context.Context, tenant, blobID string, m *chunker.M
 	}
 	pieces := make([][]byte, len(m.Pieces))
 	for i, ref := range m.Pieces {
-		b, err := g.GetPiece(ctx, tenant, ref.CID)
+		b, err := g.GetPiece(ctx, partition, ref.CID)
 		if err != nil {
 			return nil, fmt.Errorf("fetch: piece %d (%s): %w", i, ref.CID, err)
 		}
@@ -127,7 +127,7 @@ type SignedVerifyingSource struct {
 }
 
 // Open resolves the signed manifest, validates + assembles the blob, and returns a reader over the
-// bytes plus their length. The tenant is the caller's chain-authoritative partition, never a token claim.
+// bytes plus their length. The partition is the one the caller's chain established, never a token claim.
 func (s SignedVerifyingSource) Open(ctx context.Context, partition, blobID string) (io.ReadCloser, int64, error) {
 	if s.Manifests == nil {
 		return nil, 0, errors.New("fetch: nil signed manifest getter")
@@ -154,16 +154,16 @@ type VerifyingSource struct {
 }
 
 // Open resolves the manifest, assembles + verifies the blob, and returns a reader over the bytes plus
-// their length. The partition is the caller's chain-authoritative tenant, never a token claim.
-func (s VerifyingSource) Open(ctx context.Context, tenant, blobID string) (io.ReadCloser, int64, error) {
+// their length. The partition is the one the caller's chain established, never a token claim.
+func (s VerifyingSource) Open(ctx context.Context, partition, blobID string) (io.ReadCloser, int64, error) {
 	if s.Manifests == nil {
 		return nil, 0, errors.New("fetch: nil manifest getter")
 	}
-	m, err := s.Manifests.GetManifest(ctx, tenant, blobID)
+	m, err := s.Manifests.GetManifest(ctx, partition, blobID)
 	if err != nil {
 		return nil, 0, fmt.Errorf("fetch: manifest for %s: %w", blobID, err)
 	}
-	data, err := AssembleBlob(ctx, tenant, blobID, m, s.Pieces)
+	data, err := AssembleBlob(ctx, partition, blobID, m, s.Pieces)
 	if err != nil {
 		return nil, 0, err
 	}

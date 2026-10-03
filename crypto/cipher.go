@@ -9,7 +9,7 @@
 // The Cipher interface is small and pluggable so callers can swap the
 // default XChaCha20-Poly1305 impl for AES-256-GCM (or any other AEAD).
 //
-// Per-partition KEK isolation (tenant_kek.go) lets a single node host
+// Per-partition KEK isolation (partition_kek.go) lets a single node host
 // multiple partition caches whose chunks are structurally inaccessible
 // across partition boundaries.
 //
