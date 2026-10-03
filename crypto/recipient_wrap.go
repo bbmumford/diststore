@@ -63,7 +63,7 @@ var ErrNoEntitlementGate = errors.New("crypto: nil entitlement gate (pass a real
 func EntitledAllowAll() error { return nil }
 
 // RecipientWrappedDataKey is a per-blob data key sealed to ONE recipient's
-// public key. Unlike WrappedDataKey (tenant-symmetric, tenant_kek.go), no
+// public key. Unlike WrappedDataKey (partition-symmetric, partition_kek.go), no
 // shared KEK is needed: only the holder of the recipient private key can
 // unwrap, so the wrap composes with public gossip/advertise distribution.
 type RecipientWrappedDataKey struct {
