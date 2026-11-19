@@ -22,8 +22,29 @@ import (
 // authorized blob), so a partial push surfaces as an error rather than a silent gap.
 // ctx is honoured between pieces so a cancelled upload stops promptly.
 func StoreBlob(ctx context.Context, s io.ReadWriter, m *chunker.Manifest, pieces [][]byte) error {
+	all := make([]int, len(pieces))
+	for i := range all {
+		all[i] = i
+	}
+	return StorePieces(ctx, s, m, pieces, all)
+}
+
+// StorePieces is StoreBlob for the pieces at indices only, in the order given: the
+// whole manifest frame first, which the holder scopes writes on and recomputes the
+// root from, then each named piece. A blob placed across several holders is pushed
+// to each holder as the pieces assigned to it. pieces holds every piece of the
+// manifest; an index outside it, or one named twice, is refused before anything is
+// written.
+func StorePieces(ctx context.Context, s io.ReadWriter, m *chunker.Manifest, pieces [][]byte, indices []int) error {
 	if len(pieces) != len(m.Pieces) {
 		return fmt.Errorf("storepiece: %d pieces for a %d-piece manifest", len(pieces), len(m.Pieces))
+	}
+	seen := make(map[int]bool, len(indices))
+	for _, i := range indices {
+		if i < 0 || i >= len(pieces) || seen[i] {
+			return fmt.Errorf("storepiece: piece index %d is outside the %d-piece manifest or named twice", i, len(pieces))
+		}
+		seen[i] = true
 	}
 	// JSON to match the holder's ServeStoreStream, which json.Unmarshals the frame.
 	mBytes, err := json.Marshal(m)
@@ -33,7 +54,8 @@ func StoreBlob(ctx context.Context, s io.ReadWriter, m *chunker.Manifest, pieces
 	if err := streamfetch.WriteFrame(s, mBytes); err != nil {
 		return err
 	}
-	for i, p := range pieces {
+	for _, i := range indices {
+		p := pieces[i]
 		if err := ctx.Err(); err != nil {
 			return err
 		}
