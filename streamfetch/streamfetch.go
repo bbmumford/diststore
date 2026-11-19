@@ -69,6 +69,21 @@ func FetchFromHolders(ctx context.Context, m *chunker.Manifest, holders []Holder
 	return nil, fmt.Errorf("streamfetch: no holder served the blob: %w", lastErr)
 }
 
+// FetchFromHoldersSHA256 is FetchFromHolders whose reassembled blob must also hash to
+// want, the whole blob's SHA-256 as lowercase hex (chunker.VerifySHA256): the check a
+// browser makes against the root the uploader declared, since WebCrypto has no
+// BLAKE2b. An empty want is refused.
+func FetchFromHoldersSHA256(ctx context.Context, m *chunker.Manifest, holders []Holder, dial DialFunc, want string) ([]byte, error) {
+	blob, err := FetchFromHolders(ctx, m, holders, dial)
+	if err != nil {
+		return nil, err
+	}
+	if err := chunker.VerifySHA256(blob, m, want); err != nil {
+		return nil, err
+	}
+	return blob, nil
+}
+
 // MaxFrame bounds one framed message. A manifest for the chunker's file cap is a few
 // hundred piece records; a FetchResponse carries one plaintext chunk (256 KB default,
 // a few MB at most). 8 MiB is generous headroom and caps a hostile peer's per-frame

@@ -11,6 +11,7 @@ import (
 	"crypto/rand"
 	"io"
 	"net"
+	"strings"
 	"testing"
 
 	"github.com/bbmumford/diststore/chunker"
@@ -67,8 +68,8 @@ func TestFetchFromHolders_SkipsHoldersThatCannotServe(t *testing.T) {
 	m, pieces, orig := chunkMap(t, 600*1024)
 
 	held := map[string]map[string][]byte{
-		"empty-holder":  {},     // holds nothing → serves misses
-		"full-holder":   pieces, // holds all → serves the blob
+		"empty-holder": {},     // holds nothing → serves misses
+		"full-holder":  pieces, // holds all → serves the blob
 	}
 	dial := func(_ context.Context, agentID string, _ []byte) (io.ReadWriter, error) {
 		server, client := net.Pipe()
@@ -84,6 +85,32 @@ func TestFetchFromHolders_SkipsHoldersThatCannotServe(t *testing.T) {
 	}
 	if !bytes.Equal(blob, orig) {
 		t.Fatal("fetched blob differs from the original")
+	}
+}
+
+// A fetch checked against the blob's SHA-256 answers the blob only when the digest
+// matches; a wrong or absent digest refuses a blob every piece of which verified.
+func TestFetchFromHoldersSHA256_RefusesABlobItsDigestDoesNotName(t *testing.T) {
+	m, pieces, orig := chunkMap(t, 600*1024)
+	dial := func(_ context.Context, _ string, _ []byte) (io.ReadWriter, error) {
+		server, client := net.Pipe()
+		go serveHolder(server, pieces)
+		return client, nil
+	}
+	parts := make([][]byte, len(m.Pieces))
+	for i, p := range m.Pieces {
+		parts[i] = pieces[p.CID]
+	}
+	_, whole := chunker.SHA256Hex(parts)
+	order := []Holder{{AgentNodeID: "full-holder"}}
+	blob, err := FetchFromHoldersSHA256(context.Background(), m, order, dial, whole)
+	if err != nil || !bytes.Equal(blob, orig) {
+		t.Fatalf("FetchFromHoldersSHA256 with the blob's digest: err %v, equal %v", err, bytes.Equal(blob, orig))
+	}
+	for _, want := range []string{"", strings.Repeat("0", 64)} {
+		if _, err := FetchFromHoldersSHA256(context.Background(), m, order, dial, want); err == nil {
+			t.Fatalf("digest %q: a blob it does not name was answered", want)
+		}
 	}
 }
 
