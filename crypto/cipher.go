@@ -16,7 +16,11 @@
 // Per-recipient asymmetric wrap (recipient_wrap.go) is the complementary
 // model: a blob's data key is sealed to a single peer's public key with no
 // shared KEK, so the wrap can ride the public advertise/gossip path and only
-// the named recipient can open it.
+// the named recipient can open it. Its JSON field names, Alg tokens, KEK
+// context string and each scheme's byte framing are a wire contract: data keys
+// already sealed into stored envelopes and wrapping records open only while
+// all of them stay byte-identical, which the fixed vectors in this package's
+// recipient wrap tests hold.
 package crypto
 
 // Cipher abstracts the AEAD primitive used to encrypt + authenticate

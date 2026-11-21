@@ -11,7 +11,8 @@ for mesh / P2P networks.
 - **index/** — Merkle-root + signed piece manifest.
 - **crypto/** — pluggable `Cipher` (XChaCha20-Poly1305 default,
   AES-256-GCM alternative), per-tenant KEK isolation, advertisement
-  signing.
+  signing, and the per-recipient data-key wrap (`nacl-box`, `p256-aeskw`)
+  with its signed `WrappingRecord`.
 - **storage/** — pluggable `Backend` (filesystem default, in-memory).
 - **cache/** — local encrypted store + anti-tamper verifier.
 - **quota/** — headroom-based dynamic disk budget.

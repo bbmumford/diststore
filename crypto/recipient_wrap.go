@@ -62,10 +62,11 @@ var ErrNoEntitlementGate = errors.New("crypto: nil entitlement gate (pass a real
 // is visible to code search and review. Never pass nil — it is rejected.
 func EntitledAllowAll() error { return nil }
 
-// RecipientWrappedDataKey is a per-blob data key sealed to ONE recipient's
-// public key. Unlike WrappedDataKey (partition-symmetric, partition_kek.go), no
-// shared KEK is needed: only the holder of the recipient private key can
-// unwrap, so the wrap composes with public gossip/advertise distribution.
+// RecipientWrappedDataKey is a data key sealed to ONE recipient's public key.
+// Unlike WrappedDataKey (partition-symmetric, partition_kek.go), no shared
+// key-encryption key is needed: only the holder of the recipient private key
+// can unwrap, so the wrap can travel in publicly gossiped or advertised
+// records. Its JSON field names are wire names.
 type RecipientWrappedDataKey struct {
 	Alg          WrapAlg `json:"alg"`          // sealing scheme
 	RecipientPub []byte  `json:"recipientPub"` // recipient pub the DEK is sealed to (ed25519 32B for NaCl; P-256 SEC1 for FIPS)
@@ -319,10 +320,11 @@ func xorRoundCount(a []byte, t uint64) {
 }
 
 // WrappingRecord is the signed, on-wire announcement that a blob's data key has
-// been sealed to a recipient. It is canonical-JSON + Ed25519 (like the advertise
-// path), NOT protobuf. BlobCID anchors the wrap to its blob the same way
-// EncryptForStorage binds CID as AAD — a verifier rejects a wrap whose BlobCID
-// does not match the blob it was requested for.
+// been sealed to a recipient. It is canonical JSON signed with Ed25519, NOT
+// protobuf, so its signature covers exactly the bytes canonicalWrapping
+// produces. BlobCID anchors the wrap to its blob the same way EncryptForStorage
+// binds CID as AAD: a verifier rejects a wrap whose BlobCID does not match the
+// blob it was requested for.
 type WrappingRecord struct {
 	BlobCID    string                  `json:"blobCid"`    // content-address of the blob (anchor)
 	Recipient  RecipientWrappedDataKey `json:"recipient"`  // sealed DEK + alg + recipient pub
@@ -340,8 +342,9 @@ func canonicalWrapping(r *WrappingRecord) ([]byte, error) {
 }
 
 // SignWrapping signs r in place: it sets WrapperPub from priv and Signature
-// over the canonical bytes, mirroring the advertise signed-record pattern (pub
-// embedded so a verifier needs no directory lookup).
+// over the canonical bytes, through SignAdvertisement's key and envelope
+// checks. The public key is embedded so a verifier needs no directory lookup.
+// A malformed key leaves r unsigned.
 func SignWrapping(priv ed25519.PrivateKey, r *WrappingRecord) error {
 	env, err := canonicalWrapping(r)
 	if err != nil {
