@@ -360,8 +360,11 @@ func SignWrapping(priv ed25519.PrivateKey, r *WrappingRecord) error {
 }
 
 // VerifyWrapping returns nil when r's signature is valid for its embedded
-// WrapperPub. The caller is responsible for checking BlobCID against the blob
-// it actually requested.
+// WrapperPub. That proves r is self-consistent, not who issued it: any key
+// holder can sign a record with its own key. A verifier that acts on who
+// issued the wrap calls VerifyWrappingFrom with the issuers it trusts. The
+// caller is responsible for checking BlobCID against the blob it actually
+// requested.
 func VerifyWrapping(r *WrappingRecord) error {
 	if len(r.WrapperPub) != ed25519.PublicKeySize {
 		return errors.New("crypto: wrapping record missing wrapper pubkey")
@@ -371,4 +374,50 @@ func VerifyWrapping(r *WrappingRecord) error {
 		return fmt.Errorf("crypto: canonical wrapping: %w", err)
 	}
 	return VerifyAdvertisement(ed25519.PublicKey(r.WrapperPub), env, r.Signature)
+}
+
+// ErrNoIssuerGate is returned by VerifyWrappingFrom when its issuer gate is
+// nil. A missing gate is fail-closed, never an implicit trust of any issuer:
+// a caller that accepts any signer calls VerifyWrapping, so every such use is
+// greppable and intentional.
+var ErrNoIssuerGate = errors.New("crypto: nil wrapping-record issuer gate (pass a trust check or TrustIssuers)")
+
+// ErrUntrustedIssuer is returned by a TrustIssuers gate for a WrapperPub that
+// is not one of its keys.
+var ErrUntrustedIssuer = errors.New("crypto: wrapping record issuer is not trusted")
+
+// TrustIssuers returns an issuer gate for VerifyWrappingFrom that admits
+// exactly the given Ed25519 public keys. The keys are copied, so a caller may
+// reuse its slices afterwards. With no keys the gate admits no issuer.
+func TrustIssuers(keys ...ed25519.PublicKey) func(ed25519.PublicKey) error {
+	trusted := make(map[string]struct{}, len(keys))
+	for _, k := range keys {
+		trusted[string(k)] = struct{}{}
+	}
+	return func(issuer ed25519.PublicKey) error {
+		if _, ok := trusted[string(issuer)]; !ok {
+			return ErrUntrustedIssuer
+		}
+		return nil
+	}
+}
+
+// VerifyWrappingFrom returns nil when r's signature is valid for its embedded
+// WrapperPub AND trusted admits that key, so r is proven to come from an
+// issuer the caller trusts. trusted is the caller's trust decision: a fixed
+// set from TrustIssuers, or a directory or policy lookup. It must be non-nil
+// (nil is rejected with ErrNoIssuerGate); it runs only after the signature
+// verifies, receives a copy of WrapperPub, and its error is returned verbatim.
+// The caller still checks BlobCID against the blob it requested.
+func VerifyWrappingFrom(r *WrappingRecord, trusted func(issuer ed25519.PublicKey) error) error {
+	if trusted == nil {
+		return ErrNoIssuerGate
+	}
+	if r == nil {
+		return errors.New("crypto: nil wrapping record")
+	}
+	if err := VerifyWrapping(r); err != nil {
+		return err
+	}
+	return trusted(append(ed25519.PublicKey(nil), r.WrapperPub...))
 }
