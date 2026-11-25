@@ -62,7 +62,11 @@ func TestVerifyingSource_RoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
-	defer rc.Close()
+	defer func() {
+		if err := rc.Close(); err != nil {
+			t.Errorf("rc.Close: %v", err)
+		}
+	}()
 	if size != int64(len(data)) {
 		t.Fatalf("size %d, want %d", size, len(data))
 	}

@@ -49,7 +49,11 @@ func TestSignedVerifyingSource_RoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
-	defer rc.Close()
+	defer func() {
+		if err := rc.Close(); err != nil {
+			t.Errorf("rc.Close: %v", err)
+		}
+	}()
 	got, _ := io.ReadAll(rc)
 	if int64(len(got)) != size || len(got) != len(data) {
 		t.Fatalf("size mismatch: read %d size %d want %d", len(got), size, len(data))

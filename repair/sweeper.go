@@ -106,10 +106,7 @@ func (s *Sweeper) loop(ctx context.Context) {
 func (s *Sweeper) drain(ctx context.Context) {
 	sem := make(chan struct{}, s.cfg.MaxConcurrent)
 	var wg sync.WaitGroup
-	for {
-		if ctx.Err() != nil {
-			break
-		}
+	for ctx.Err() == nil {
 		item := s.queue.Pop()
 		if item == nil {
 			break

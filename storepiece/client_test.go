@@ -20,7 +20,11 @@ import (
 // holder reads the manifest frame and then each piece frame from conn until it
 // closes, echoing every piece's CID, and returns the CIDs it was sent.
 func holder(t *testing.T, conn net.Conn, got chan<- []string) {
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			t.Errorf("conn.Close: %v", err)
+		}
+	}()
 	var cids []string
 	frame, err := streamfetch.ReadFrame(conn)
 	if err != nil {

@@ -164,7 +164,7 @@ func (r *Replicator) loop(ctx context.Context) {
 			close(done)
 		}
 	}()
-	r.tickOnce(ctx)
+	r.scan(ctx)
 	t := time.NewTicker(r.interval)
 	defer t.Stop()
 	for {
@@ -172,8 +172,17 @@ func (r *Replicator) loop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			r.tickOnce(ctx)
+			r.scan(ctx)
 		}
+	}
+}
+
+// scan runs one tick of the seed loop. The loop has no caller to hand an error
+// to, so a failed scan is logged and the next tick tries again; a scan that
+// Stop cut short is not a failure.
+func (r *Replicator) scan(ctx context.Context) {
+	if err := r.tickOnce(ctx); err != nil && ctx.Err() == nil {
+		r.log.Warn("replicate: scan failed", "err", err)
 	}
 }
 
