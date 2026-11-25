@@ -44,7 +44,6 @@ type Config struct {
 type Replicator struct {
 	store      *cache.Store
 	advertiser *advertise.Advertiser
-	resolver   *fetch.Fetcher // accessed only for FetchWithPeer
 	fetcher    *fetch.Fetcher
 	cfg        Config
 	interval   time.Duration
