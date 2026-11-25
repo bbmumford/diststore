@@ -1,6 +1,6 @@
 module github.com/bbmumford/diststore
 
-go 1.25.0
+go 1.27.4
 
 require (
 	filippo.io/edwards25519 v1.2.0
