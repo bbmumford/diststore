@@ -110,8 +110,8 @@ Importers in the ORBTR estate:
 - `github.com/bbmumford/loom/secrets` (`crypto`): the per-recipient wrap of
   role secrets.
 - `github.com/bbmumford/mercury/runtime/mesh` (`abuse`, `advertise`, `cache`,
-  `crypto`, `fetch`, `quota`, `rarest`, `replicate`, `resolve`, `storage`) and
-  `github.com/bbmumford/plutus/blob` (`fetch`).
+  `crypto`, `fetch`, `onchain`, `quota`, `rarest`, `replicate`, `resolve`,
+  `storage`) and `github.com/bbmumford/plutus/blob` (`fetch`, `onchain`).
 - `github.com/ORBTR/agent/internal/core/storage`, `internal/core/remote` and
   `systempart`: the device agent's blob storage.
 - `github.com/ORBTR/constellation/domain/storage/storage/...` (`assign`,
